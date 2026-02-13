@@ -4,22 +4,22 @@ import 'leaflet/dist/leaflet.css'
 import {
   LayoutDashboard,
   Map,
-  Upload,
-  BarChart3,
-  FileText,
-  Settings,
   Satellite,
+  Bell,
+  FileText,
   Shield,
 } from 'lucide-react'
 import Dashboard from './components/Dashboard'
 import AnalyzePage from './components/AnalyzePage'
 import PlotsPage from './components/PlotsPage'
+import AlertsPage from './components/AlertsPage'
 import ReportsPage from './components/ReportsPage'
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'analyze', label: 'Analyze Images', icon: Satellite },
   { id: 'plots', label: 'Plot Registry', icon: Map },
+  { id: 'alerts', label: 'Alerts', icon: Bell },
   { id: 'reports', label: 'Reports', icon: FileText },
 ]
 
@@ -31,6 +31,7 @@ function App() {
       case 'dashboard': return <Dashboard onNavigate={setActivePage} />
       case 'analyze': return <AnalyzePage />
       case 'plots': return <PlotsPage />
+      case 'alerts': return <AlertsPage />
       case 'reports': return <ReportsPage />
       default: return <Dashboard onNavigate={setActivePage} />
     }
@@ -38,20 +39,16 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <div className="logo-icon">
-              <Shield size={22} />
-            </div>
+            <div className="logo-icon"><Shield size={22} /></div>
             <div>
               <h1>LandWatch</h1>
               <p>CSIDC Monitoring</p>
             </div>
           </div>
         </div>
-
         <nav className="sidebar-nav">
           {navItems.map(item => (
             <button
@@ -64,16 +61,11 @@ function App() {
             </button>
           ))}
         </nav>
-
         <div className="sidebar-footer">
-          CSIDC Land Monitoring System v1.0
+          LandWatch v2.0 · CSIDC Chhattisgarh
         </div>
       </aside>
-
-      {/* Main Content */}
-      <main className="main-content">
-        {renderPage()}
-      </main>
+      <main className="main-content">{renderPage()}</main>
     </div>
   )
 }

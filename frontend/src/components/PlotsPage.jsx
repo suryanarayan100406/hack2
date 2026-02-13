@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Map, Search, Filter, ExternalLink } from 'lucide-react'
+import { Map, Search, ExternalLink, Download, Building, Target } from 'lucide-react'
 
 const API = 'http://localhost:8000'
 
@@ -7,26 +7,22 @@ export default function PlotsPage() {
     const [plots, setPlots] = useState([])
     const [search, setSearch] = useState('')
     const [filter, setFilter] = useState('all')
+    const [areaFilter, setAreaFilter] = useState('all')
+    const [selectedPlot, setSelectedPlot] = useState(null)
 
-    useEffect(() => {
-        fetchPlots()
-    }, [])
+    useEffect(() => { fetchPlots() }, [])
 
     const fetchPlots = async () => {
         try {
             const res = await fetch(`${API}/api/plots`)
-            const data = await res.json()
-            setPlots(data.plots || [])
+            setPlots((await res.json()).plots || [])
         } catch {
-            setPlots([
-                { id: "PLOT-001", name: "Siltara Industrial Area - Plot A1", status: "Compliant", area_sqm: 4500, lessee: "ABC Industries Pvt Ltd", allotment_date: "2019-03-15", last_inspection: "2025-11-20", lease_status: "Active", coordinates: [21.2854, 81.5880] },
-                { id: "PLOT-002", name: "Siltara Industrial Area - Plot A2", status: "Encroachment Detected", area_sqm: 3200, lessee: "XYZ Manufacturing", allotment_date: "2020-06-01", last_inspection: "2025-10-15", lease_status: "Active", coordinates: [21.2860, 81.5890] },
-                { id: "PLOT-003", name: "Urla Industrial Area - Plot B5", status: "Vacant/Unused", area_sqm: 6000, lessee: "PQR Steels", allotment_date: "2018-01-10", last_inspection: "2025-09-05", lease_status: "Dues Pending", coordinates: [21.2230, 81.5640] },
-                { id: "PLOT-004", name: "Urla Industrial Area - Plot B6", status: "Boundary Deviation", area_sqm: 5100, lessee: "LMN Chemicals", allotment_date: "2017-08-22", last_inspection: "2025-12-01", lease_status: "Active", coordinates: [21.2240, 81.5650] },
-                { id: "PLOT-005", name: "Borai Industrial Area - Plot C1", status: "Unauthorized Construction", area_sqm: 7500, lessee: "DEF Pharma Ltd", allotment_date: "2021-02-14", last_inspection: "2025-08-18", lease_status: "Active", coordinates: [21.3010, 81.6200] },
-                { id: "PLOT-006", name: "Borai Industrial Area - Plot C2", status: "Compliant", area_sqm: 4000, lessee: "GHI Textiles", allotment_date: "2019-11-30", last_inspection: "2025-07-25", lease_status: "Active", coordinates: [21.3020, 81.6210] },
-            ])
+            // fallback handled in render
         }
+    }
+
+    const exportCSV = () => {
+        window.open(`${API}/api/export/plots`, '_blank')
     }
 
     const getStatusBadge = (status) => {
@@ -38,14 +34,18 @@ export default function PlotsPage() {
         return 'badge-info'
     }
 
-    const filteredPlots = plots.filter(p => {
+    const areas = [...new Set(plots.map(p => p.industrial_area))].filter(Boolean)
+
+    const filtered = plots.filter(p => {
         const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
             p.id.toLowerCase().includes(search.toLowerCase()) ||
-            p.lessee?.toLowerCase().includes(search.toLowerCase())
-        const matchFilter = filter === 'all' ||
+            (p.lessee || '').toLowerCase().includes(search.toLowerCase())
+        const matchStatus = filter === 'all' ||
             (filter === 'compliant' && p.status === 'Compliant') ||
-            (filter === 'violations' && p.status !== 'Compliant')
-        return matchSearch && matchFilter
+            (filter === 'violations' && p.status !== 'Compliant') ||
+            (filter === 'dues' && p.dues_pending > 0)
+        const matchArea = areaFilter === 'all' || p.industrial_area === areaFilter
+        return matchSearch && matchStatus && matchArea
     })
 
     return (
@@ -53,59 +53,37 @@ export default function PlotsPage() {
             <header className="page-header">
                 <div>
                     <h2>Plot Registry</h2>
-                    <p>Complete inventory of monitored industrial land parcels</p>
+                    <p>Complete inventory of {plots.length} monitored industrial land parcels</p>
                 </div>
-                <a
-                    href="https://cggis.cgstate.gov.in/csidc/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary"
-                >
-                    <ExternalLink size={16} /> CSIDC GIS Portal
-                </a>
+                <div className="header-actions">
+                    <a href="https://cggis.cgstate.gov.in/csidc/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+                        <ExternalLink size={16} /> CSIDC GIS Portal
+                    </a>
+                    <button className="btn btn-primary" onClick={exportCSV}>
+                        <Download size={16} /> Export CSV
+                    </button>
+                </div>
             </header>
 
             <div className="page-body">
                 {/* Filters */}
-                <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, position: 'relative', minWidth: 250 }}>
                         <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input
-                            type="text"
-                            placeholder="Search by Plot ID, area name, or lessee..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '12px 12px 12px 40px',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '10px',
-                                color: 'var(--text-primary)',
-                                fontSize: '14px',
-                                fontFamily: 'Inter, sans-serif',
-                                outline: 'none',
-                            }}
-                        />
+                        <input type="text" placeholder="Search by Plot ID, name, or lessee..." value={search} onChange={e => setSearch(e.target.value)}
+                            style={{ width: '100%', padding: '12px 12px 12px 40px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'Inter', outline: 'none' }} />
                     </div>
-                    <select
-                        value={filter}
-                        onChange={e => setFilter(e.target.value)}
-                        style={{
-                            padding: '12px 16px',
-                            background: 'var(--bg-card)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '10px',
-                            color: 'var(--text-primary)',
-                            fontSize: '14px',
-                            fontFamily: 'Inter, sans-serif',
-                            outline: 'none',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        <option value="all">All Plots</option>
-                        <option value="compliant">Compliant Only</option>
-                        <option value="violations">Violations Only</option>
+                    <select value={filter} onChange={e => setFilter(e.target.value)}
+                        style={{ padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'Inter', outline: 'none', cursor: 'pointer' }}>
+                        <option value="all">All Status</option>
+                        <option value="compliant">Compliant</option>
+                        <option value="violations">Violations</option>
+                        <option value="dues">Dues Pending</option>
+                    </select>
+                    <select value={areaFilter} onChange={e => setAreaFilter(e.target.value)}
+                        style={{ padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'Inter', outline: 'none', cursor: 'pointer' }}>
+                        <option value="all">All Areas</option>
+                        {areas.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
                 </div>
 
@@ -118,38 +96,91 @@ export default function PlotsPage() {
                                     <th>Plot ID</th>
                                     <th>Industrial Area / Plot</th>
                                     <th>Lessee</th>
-                                    <th>Area (sqm)</th>
-                                    <th>Allotment Date</th>
-                                    <th>Last Inspection</th>
-                                    <th>Lease Status</th>
-                                    <th>Compliance Status</th>
+                                    <th>Area</th>
+                                    <th>Land Use</th>
+                                    <th>Compliance</th>
+                                    <th>Lease (₹)</th>
+                                    <th>Dues (₹)</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredPlots.map(plot => (
-                                    <tr key={plot.id}>
+                                {filtered.map(plot => (
+                                    <tr key={plot.id} onClick={() => setSelectedPlot(selectedPlot?.id === plot.id ? null : plot)} style={{ cursor: 'pointer' }}>
                                         <td style={{ fontWeight: 600 }}>{plot.id}</td>
-                                        <td>{plot.name}</td>
+                                        <td style={{ fontSize: 12 }}>{plot.name}</td>
                                         <td>{plot.lessee}</td>
-                                        <td>{plot.area_sqm?.toLocaleString()}</td>
-                                        <td>{plot.allotment_date || '—'}</td>
-                                        <td>{plot.last_inspection || '—'}</td>
+                                        <td>{plot.area_sqm?.toLocaleString()} sqm</td>
+                                        <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{plot.land_use || '—'}</td>
                                         <td>
-                                            <span className={`badge ${plot.lease_status === 'Dues Pending' ? 'badge-warning' : 'badge-compliant'}`}>
-                                                {plot.lease_status || 'Active'}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <div style={{ flex: 1, height: 6, background: 'var(--bg-secondary)', borderRadius: 3, overflow: 'hidden', minWidth: 50 }}>
+                                                    <div style={{ width: `${plot.compliance_score}%`, height: '100%', borderRadius: 3, background: plot.compliance_score >= 70 ? 'var(--accent-green)' : plot.compliance_score >= 40 ? 'var(--accent-amber)' : 'var(--accent-red)' }} />
+                                                </div>
+                                                <span style={{ fontSize: 12, fontWeight: 600, minWidth: 32 }}>{plot.compliance_score}%</span>
+                                            </div>
                                         </td>
-                                        <td>
-                                            <span className={`badge ${getStatusBadge(plot.status)}`}>
-                                                {plot.status}
-                                            </span>
+                                        <td>₹{(plot.lease_amount || 0).toLocaleString()}</td>
+                                        <td style={{ color: plot.dues_pending > 0 ? 'var(--accent-red)' : 'var(--text-muted)', fontWeight: plot.dues_pending > 0 ? 600 : 400 }}>
+                                            {plot.dues_pending > 0 ? `₹${plot.dues_pending.toLocaleString()}` : '—'}
                                         </td>
+                                        <td><span className={`badge ${getStatusBadge(plot.status)}`}>{plot.status}</span></td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
                 </div>
+
+                {/* Detail Panel */}
+                {selectedPlot && (
+                    <div className="card animate-in" style={{ marginTop: 20 }}>
+                        <div className="card-header">
+                            <h3><Building size={16} /> Plot Details — {selectedPlot.id}</h3>
+                            <button className="btn btn-secondary" onClick={() => setSelectedPlot(null)} style={{ padding: '6px 12px', fontSize: 12 }}>Close</button>
+                        </div>
+                        <div className="card-body">
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                                <div className="summary-box" style={{ padding: 14 }}>
+                                    <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase' }}>General</h4>
+                                    <div className="summary-row"><span className="label">Plot Name</span><span className="value" style={{ fontSize: 12 }}>{selectedPlot.name}</span></div>
+                                    <div className="summary-row"><span className="label">Lessee</span><span className="value">{selectedPlot.lessee}</span></div>
+                                    <div className="summary-row"><span className="label">Land Use</span><span className="value">{selectedPlot.land_use}</span></div>
+                                    <div className="summary-row"><span className="label">Area</span><span className="value">{selectedPlot.area_sqm?.toLocaleString()} sqm</span></div>
+                                </div>
+                                <div className="summary-box" style={{ padding: 14 }}>
+                                    <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase' }}>Dates</h4>
+                                    <div className="summary-row"><span className="label">Allotment</span><span className="value">{selectedPlot.allotment_date}</span></div>
+                                    <div className="summary-row"><span className="label">Last Inspection</span><span className="value">{selectedPlot.last_inspection}</span></div>
+                                    <div className="summary-row"><span className="label">Coordinates</span><span className="value" style={{ fontSize: 11 }}>{selectedPlot.coordinates?.join(', ')}</span></div>
+                                </div>
+                                <div className="summary-box" style={{ padding: 14 }}>
+                                    <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase' }}>Financials</h4>
+                                    <div className="summary-row"><span className="label">Lease Amount</span><span className="value">₹{(selectedPlot.lease_amount || 0).toLocaleString()}</span></div>
+                                    <div className="summary-row"><span className="label">Water Charges</span><span className="value">₹{(selectedPlot.water_charges || 0).toLocaleString()}</span></div>
+                                    <div className="summary-row"><span className="label">Dues Pending</span><span className="value" style={{ color: selectedPlot.dues_pending > 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>₹{(selectedPlot.dues_pending || 0).toLocaleString()}</span></div>
+                                    <div className="summary-row"><span className="label">Lease Status</span><span className="value">{selectedPlot.lease_status}</span></div>
+                                </div>
+                                <div className="summary-box" style={{ padding: 14 }}>
+                                    <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase' }}>Compliance</h4>
+                                    <div style={{ textAlign: 'center', marginBottom: 10 }}>
+                                        <div style={{
+                                            width: 80, height: 80, borderRadius: '50%', margin: '0 auto',
+                                            background: `conic-gradient(${selectedPlot.compliance_score >= 70 ? 'var(--accent-green)' : selectedPlot.compliance_score >= 40 ? 'var(--accent-amber)' : 'var(--accent-red)'} ${selectedPlot.compliance_score * 3.6}deg, var(--bg-primary) 0deg)`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18 }}>
+                                                {selectedPlot.compliance_score}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="summary-row"><span className="label">Status</span><span className={`badge ${getStatusBadge(selectedPlot.status)}`}>{selectedPlot.status}</span></div>
+                                    <div className="summary-row"><span className="label">Built Area</span><span className="value">{selectedPlot.constructed_area_pct}%</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     )
