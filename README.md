@@ -8,7 +8,7 @@
 ## Problem Statement
 
 CSIDC (Chhattisgarh State Industrial Development Corporation) manages thousands of industrial plots across the state. Currently, ensuring compliance (detecting encroachments, unauthorized construction, vacant plots) relies on expensive periodic drone surveys (₹2.5L per visit × 4/year = ₹10L/year). LandWatch automates this using satellite imagery and image processing.
-Link - https://hackathon.suryaxtony.in/
+Hosted - https://hackathon.suryaxtony.in/
 ## Key Features
 
 | Feature | Description |
